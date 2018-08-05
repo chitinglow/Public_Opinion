@@ -1,0 +1,227 @@
+---
+title: "Canadians’ Attitudes toward the Health Care System"
+author: "Chi Ting Low"
+date: "8/4/2018"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.align = 'center', fig.width = 8)
+```
+
+## Introduction
+
+Health care or healthcare is the maintenance of improvement of health via the prevention, diagnosis, and treatement of diesease. Access to health care may vary across countries which is influenced by social and economic conditions as well as the government policies. Health care is considering the mos important determinat in promoting the general physical and mental health well-being of people around the world. One of the most sucessful example of health care effort is the eradication of smallpox around the world. 
+
+Healthcare in Canada is delivered through thirteen provincial and territorial systems of publicly funded health care, informally called Medicare. Canada is one of the countries which offer free health care and universal health care toward it's population. According to [Health Care Index for Country 2018 Mid-Year](https://www.numbeo.com/health-care/rankings_by_country.jsp), Canada is ranked 25th among the countries around the world. Beside that, Canadians is strongly support it's health system for public rather that for-profit private basis.
+
+The aim of this project is to examine Canadians' attitudes toward their health care system. The dataset for this project and it's dictionary are gather from Canada goverment open source portal which can be found [here.](https://open.canada.ca/data/en/dataset/3eac6c30-4e06-4441-a84b-8019786ae69c) The data description can be found in this [link.](http://www.hc-sc.gc.ca/data-donnees/cpab-dgcap/cdn-attitudes-healthcare-data-dictionary-eng.txt)
+
+```{r}
+library(dplyr) #data manipulation
+library(tidyr) #Spread, separate, unite, text mining (also included in the tidyverse package)
+library(ggplot2) #visualizations
+library(gridExtra) #viewing multiple plots together
+library(knitr) #Create nicely formatted output tables
+library(kableExtra) #Create nicely formatted output tables
+library(formattable) #For the color_tile function
+library(DT) #for nicely formatted output tables
+library(ggthemes) #for ggplot theme
+library(viridis) # to get scale_fill_viridis
+
+healthcare <- read.csv("cdn-attitudes-healthcare_attitudes-canadiens-system-soins.csv", 
+                       stringsAsFactors = FALSE, na.strings = c("","NA"), header = TRUE)
+
+glimpse(healthcare)
+```
+
+The dataset shows that there are 2503 observations and 39 variables. 
+
+## Data cleaning
+
+After going through the data description, only relevant variable is selected. We removed the project number, id number and other irrelevant variables. Next we change all the character variables into factor data type.
+```{r}
+healthcare_selected <- select(healthcare, "Q1_CODM1", "Q2", "Q3",  "Q4", "Q5", "Q6A_M1", "Q6B_M1", "Q7", "Q8A", "Q8B", "Q8C", "Q8D", "Q8E", "Q8F", "Q9", "Q10", "Q11", "Q12", "Q13", "Q14", "Q15", "Q16", "AGE", "AGEGRP")
+
+#change all the character variables into factor
+character_vars <- lapply(healthcare_selected, class) == "character"
+healthcare_selected[, character_vars] <- lapply(healthcare_selected[, character_vars], as.factor)
+```
+
+
+## Data exploration
+
+First we are going to explore what people thinking of the issues facing Canada today, which one would you say the Government of Canada should focus on most? 
+
+```{r}
+# Summarize the frequency of question 1
+group <- healthcare_selected %>%
+  group_by(Q1_CODM1) %>%
+  summarise(n = n())
+
+# reorder the value
+group <- group[order(group$n, decreasing = TRUE),]
+
+group %>%
+  ggplot(aes(x = reorder(Q1_CODM1, n), y = n)) +
+  geom_bar(stat = 'identity', fill = 'red') +
+  geom_text(aes(label = n), stat = 'identity', hjust = -0.1, size = 3) +
+  coord_flip() +
+  xlab('Issues to Focus') +
+  ylab('Frequency') +
+  ggtitle('Opinion of Issues that Government of Canada Should Focus') +
+  theme_bw() +
+  theme(plot.title = element_text(size = 12),
+        axis.title = element_text(size = 10, face = "bold"))
+```
+
+As presented, Canadians think goverment should focus on **Economy**, **Health Care** and **Job/Unemployment**.
+Next, we are going to explore the difference between gender opinions. 
+
+```{r}
+gender_count <- healthcare_selected %>%
+  group_by(Q1_CODM1, Q16) %>%
+  summarise(Total = n())
+
+gender_count %>%
+  ggplot(aes(Q16, Q1_CODM1, fill = Total)) +
+  geom_tile(size = 1, color = "white") +
+  scale_fill_viridis()  +
+  geom_text(aes(label=Total), color='white') +
+  ggtitle('Gender Opinion on Issues') +
+  xlab("Gender") +
+  ylab('Issues') +
+  guides(fill = FALSE) +
+  theme(plot.title = element_text(size = 16), 
+        axis.title = element_text(size = 12, face = "bold"))
+```
+As you can see, both male and female are concern about Economy, Health care and Job/Unemployment issues. 
+
+## Rating of the Health Care System
+In this section, I am going to examine the difference of age group, education group and gender, income and employment status on of their rating on Canadian health care system. The question is: "How would you rate the current state of the Canadian health care system? Please use a scale from 1 to 10, where 1 is terrible and 10 is excellent?"
+
+### Age Group
+```{r}
+healthcare_selected$Q3 <- recode(healthcare_selected$Q3, '1 - Terrible' = '1', '10 - Excellent' = '10')
+healthcare_selected$Q3 <- ordered(healthcare_selected$Q3, levels = c('1','2','3','4','5','6','7','8','9','10'))
+
+age_count <- healthcare_selected %>%
+  group_by(AGEGRP, Q3) %>%
+  filter(AGEGRP != 'Refused') %>%
+  na.omit() %>%
+  summarise(Total = n())
+
+
+age_count %>%
+  ggplot(aes(Q3, AGEGRP, fill = Total)) +
+  geom_tile(size = 1, color = "white") +
+  scale_fill_viridis()  +
+  geom_text(aes(label=Total), color='white') +
+  ggtitle('Age Group on Health Care System Rating') +
+  xlab("Rating") +
+  ylab('Age Group') +
+  guides(fill = FALSE) +
+  theme(plot.title = element_text(size = 16), 
+        axis.title = element_text(size = 12, face = "bold"))
+```
+
+It seems like majority of the population are somewhat statisfied with the healtcare system given the rating between 5 to 8. Majority of the age group around middle age are somewhat satisfied with the health care system.
+
+### Gender Difference on Rating
+
+```{r}
+gender_rate <- healthcare_selected %>%
+  group_by(Q3, Q16) %>%
+  na.omit() %>%
+  summarise(Total = n())
+
+gender_rate %>%
+  ggplot(aes(Q3, Q16, fill = Total)) +
+  geom_tile(size = 1, color = "white") +
+  scale_fill_viridis()  +
+  geom_text(aes(label=Total), color='white') +
+  ggtitle('Gender Rating on Health Care System ') +
+  xlab("Rating") +
+  ylab('Gender') +
+  guides(fill = FALSE) +
+  theme(plot.title = element_text(size = 16), 
+        axis.title = element_text(size = 12, face = "bold"))
+```
+
+There are not much difference on rating between male and female. Both rated Canada's Health Care System above average.
+
+### Education 
+
+This section we are going to examine the diffences between education and rating to Canada's Health Care System.
+
+```{r}
+education_rate <- healthcare_selected %>%
+  group_by(Q3, Q12) %>%
+  na.omit() %>%
+  filter(Q12 != '[DO NOT READ] Refused') %>%
+  summarise(Total = n())
+
+education_rate %>%
+  ggplot(aes(Q3, Q12, fill = Total)) +
+  geom_tile(size = 1, color = "white") +
+  scale_fill_viridis()  +
+  geom_text(aes(label=Total), color='white') +
+  ggtitle('Education Group Rating on Health Care System ') +
+  xlab("Rating") +
+  ylab('Education Group') +
+  guides(fill = FALSE) +
+  theme(plot.title = element_text(size = 12), 
+        axis.title = element_text(size = 12, face = "bold"))
+```
+As presented, it shows that individuals with High School diploma, certificate and university degree are more likely to give higher rating to health care system. 
+
+### Income 
+This section is going to examine the income group on health care system rating.
+
+```{r}
+healthcare_selected$Q13 <- ordered(healthcare_selected$Q13, levels = c("$150,000 and above", "$100,000 to just under $150,000","$80,000 to just under $100,000", "$60,000 to just under $ 80,000", "$40,000 to just under $ 60,000", "$20,000 to just under $ 40,000", "Under $20,000"))
+
+income_rate <- healthcare_selected %>%
+  group_by(Q3, Q13) %>%
+  na.omit() %>%
+  filter(Q13 != '[DO NOT READ] Refused') %>%
+  summarise(Total = n())
+
+income_rate %>%
+  ggplot(aes(Q3, Q13, fill = Total)) +
+  geom_tile(size = 1, color = "white") +
+  scale_fill_viridis()  +
+  geom_text(aes(label=Total), color='white') +
+  ggtitle('Education Group Rating on Health Care System ') +
+  xlab("Rating") +
+  ylab('Education Group') +
+  guides(fill = FALSE) +
+  theme(plot.title = element_text(size = 16), 
+        axis.title = element_text(size = 12, face = "bold"))
+```
+
+### Employment Status
+
+```{r}
+employment_rate <- healthcare_selected %>%
+  group_by(Q3, Q14) %>%
+  na.omit() %>%
+  filter(Q14 != '[DO NOT READ] [IF VOLUNTEERED: Other -- DO NOT SPECIFY]' & Q14 != '[DO NOT READ] Refused') %>%
+  summarise(Total = n())
+
+employment_rate %>%
+  ggplot(aes(Q3, Q14, fill = Total)) +
+  geom_tile(size = 1, color = "white") +
+  scale_fill_viridis()  +
+  geom_text(aes(label=Total), color='white') +
+  ggtitle('Employment Status Rating on Health Care System ') +
+  xlab("Rating") +
+  ylab('Employment Status') +
+  guides(fill = FALSE) +
+  theme(plot.title = element_text(size = 10), 
+        axis.title = element_text(size = 12, face = "bold"))
+```
+
+Generally, individuals who are retired or employed are giving good rating to Canada Goverment Health Care System.
